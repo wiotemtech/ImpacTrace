@@ -17,6 +17,8 @@ class PaymentController extends Controller {
   $r->validate(['method'=>'required|in:pesapal,momo_manual']);
   $amount=$r->input('method')==='momo_manual'&&$package->momo_amount_ugx ? $package->momo_amount_ugx : $package->amount_ugx;
   $p=Payment::create(['public_user_id'=>$r->user()->id,'access_package_id'=>$package->id,'method'=>$r->method,'provider'=>$r->method==='pesapal'?'pesapal':config('services.momo.provider'),'amount_ugx'=>$amount,'status'=>'pending']);
+  
+  
   if($r->input('method')==='momo_manual') return response()->json(['payment'=>$p,'merchant_code'=>config('services.momo.merchant_code'),'ussd_code'=>config('services.momo.ussd_code'),'instructions'=>'Dial '.config('services.momo.ussd_code').' to pay the displayed amount to the merchant code, then submit the last 5 characters of your transaction reference.']);
   $checkout=config('services.pesapal.checkout_url');
   abort_unless($checkout,503,'PesaPal is not configured yet. Add PESAPAL_CHECKOUT_URL or connect the PesaPal API credentials.');
