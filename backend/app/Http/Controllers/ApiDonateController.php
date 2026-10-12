@@ -49,7 +49,7 @@ class ApiDonateController extends Controller
             "description"=> $description  ,
             "callback_url"=>"https://www.myapplication.com/response-page",
             "redirect_mode"=>"",
-            "notification_id"=>"f903770b-3b29-4a25-89ff-da5073681223",
+            "notification_id"=>"5fa9af76-bab4-4bb3-9bb6-d9cbd15019a5",
             "branch" =>  "Store Name - HQ",
             "billing_address" => [
                 "email_address"=> "john.doe@example.com",
