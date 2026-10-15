@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'https://impactrace.site/api',
+  baseURL: 'https://system.impactrace.site/api',
 })
 
 api.interceptors.request.use((config) => {

@@ -11,10 +11,8 @@ class ApiDonateController extends Controller
 
         $amount = $request->input("amount");
         $description = $request->input("description");
-        $email = $request->input("email");
+        $email = $request->input("email","admin@impactrace.site");
         $callbackUrl = $request->input('callback_url');
-        $consumerKey = $request->input('consumer_key');
-        $consumerSecret = $request->input('consumer_secret_key');
 
         // processing requests
         $requiredKeys = ['amount', 'description', 'email'];
@@ -29,8 +27,8 @@ class ApiDonateController extends Controller
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
         ])->post('https://pay.pesapal.com/v3/api/Auth/RequestToken', [
-            'consumer_key' =>$consumerKey,
-            'consumer_secret' => $consumerSecret,
+            'consumer_key' =>"3fVVcSZWWA2O6feegWJjcDe2icPaciFu",
+            'consumer_secret' =>"nXrULjEQntKrSvANjOvNPJru3ZQ=",
         ]);
 
         $token = $response->json()['token'];
@@ -47,7 +45,7 @@ class ApiDonateController extends Controller
             "currency"=> "UGX",
             "amount"=> $amount,
             "description"=> $description  ,
-            "callback_url"=>"https://www.myapplication.com/response-page",
+            "callback_url"=>$callbackUrl,
             "redirect_mode"=>"",
             "notification_id"=>"5fa9af76-bab4-4bb3-9bb6-d9cbd15019a5",
             "branch" =>  "Store Name - HQ",
