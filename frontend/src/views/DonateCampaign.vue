@@ -153,6 +153,7 @@ import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import publicApi from "../api/publicClient";
 import { demoCampaign } from "../api/demoData";
+import axios from 'axios';
 const route = useRoute(),
   campaign = ref(null),
   loading = ref(false),
@@ -199,22 +200,26 @@ async function donate() {
 
 
 async function donating() {
+  if(form.value.amount_ugx < 1000) {
+    error.value = "Amount must be at least UGX 1000.";
+    return;
+  }
   const data = {
     amount: form.value.amount_ugx,
     description: "Donation",
     email: form.value.donor_email,
-    callback_url: "https://impactrace.site/success",
-    consumer_key: "3fVVcSZWWA2O6feegWJjcDe2icPaciFu",
-    consumer_secret_key: "nXrULjEQntKrSvANjOvNPJru3ZQ=",
+    callback_url: "https://impactrace.site/donation-success",
   };
 
-  const { response } = await publicApi.post(
-      `/initiate-donation`,
-      data,
-    );
+  const resp = await axios.post(
+    "https://127.0.0.1:8000/api/initiate-donation",
+    data
+  );
 
-    console.log(response)
-
+  if(resp.data.url) {
+    window.location.href = resp.data.url;
+  }
+  console.log(resp.data.url) ;
 }
 onMounted(load);
 </script>
