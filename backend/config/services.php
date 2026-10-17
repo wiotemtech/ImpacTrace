@@ -10,7 +10,7 @@ return [
    'webhook_secret' => env('MOMO_WEBHOOK_SECRET',''),
  ],
  'pesapal' => [
-  'base_url' => env('PESAPAL_BASE_URL','https://pay.pesapal.com/v3'),
+  'base_url' => 'https://pay.pesapal.com/v3',
   'consumer_key' => env('PESAPAL_CONSUMER_KEY',''),
   'consumer_secret' => env('PESAPAL_CONSUMER_SECRET',''),
   'checkout_url' => env('PESAPAL_CHECKOUT_URL',''),

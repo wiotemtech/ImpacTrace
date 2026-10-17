@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const publicApi = axios.create({
-  baseURL: 'https://system.impactrace.site/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
 })
 
 publicApi.interceptors.request.use((config) => {

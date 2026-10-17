@@ -115,7 +115,7 @@
           </div>
          
           <button
-            @click="donating"
+            @click="donate"
             :disabled="loading"
             class="mt-5 w-full rounded-xl bg-[#176b4d] px-4 py-3 font-semibold text-white disabled:opacity-50"
           >
@@ -153,7 +153,7 @@ import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import publicApi from "../api/publicClient";
 import { demoCampaign } from "../api/demoData";
-import axios from 'axios';
+import axios from "axios";
 const route = useRoute(),
   campaign = ref(null),
   loading = ref(false),
@@ -179,27 +179,8 @@ async function load() {
     error.value = campaign.value ? "" : "This fundraiser is not available.";
   }
 }
+
 async function donate() {
-  loading.value = true;
-  manual.value = null;
-  message.value = "";
-  error.value = "";
-  try {
-    const { data } = await publicApi.post(
-      `/public/fundraisers/${route.params.slug}/donate`,
-      form.value,
-    );
-    if (data.checkout_url) window.location.href = data.checkout_url;
-    else manual.value = data;
-  } catch (e) {
-    error.value = e.response?.data?.message || "Could not start the donation.";
-  } finally {
-    loading.value = false;
-  }
-}
-
-
-async function donating() {
   if(form.value.amount_ugx < 1000) {
     error.value = "Amount must be at least UGX 1000.";
     return;
@@ -212,7 +193,7 @@ async function donating() {
   };
 
   const resp = await axios.post(
-    "https://127.0.0.1:8000/api/initiate-donation",
+    "http://127.0.0.1:8000/api/initiate-donation",
     data
   );
 
