@@ -115,7 +115,7 @@
           </div>
          
           <button
-            @click="donating"
+            @click="donate"
             :disabled="loading"
             class="mt-5 w-full rounded-xl bg-[#176b4d] px-4 py-3 font-semibold text-white disabled:opacity-50"
           >
@@ -153,6 +153,7 @@ import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import publicApi from "../api/publicClient";
 import { demoCampaign } from "../api/demoData";
+import axios from "axios";
 const route = useRoute(),
   campaign = ref(null),
   loading = ref(false),
@@ -178,43 +179,28 @@ async function load() {
     error.value = campaign.value ? "" : "This fundraiser is not available.";
   }
 }
+
 async function donate() {
-  loading.value = true;
-  manual.value = null;
-  message.value = "";
-  error.value = "";
-  try {
-    const { data } = await publicApi.post(
-      `/public/fundraisers/${route.params.slug}/donate`,
-      form.value,
-    );
-    if (data.checkout_url) window.location.href = data.checkout_url;
-    else manual.value = data;
-  } catch (e) {
-    error.value = e.response?.data?.message || "Could not start the donation.";
-  } finally {
-    loading.value = false;
+  if(form.value.amount_ugx < 1000) {
+    error.value = "Amount must be at least UGX 1000.";
+    return;
   }
-}
-
-
-async function donating() {
   const data = {
     amount: form.value.amount_ugx,
     description: "Donation",
     email: form.value.donor_email,
-    callback_url: "https://impactrace.site/success",
-    consumer_key: "3fVVcSZWWA2O6feegWJjcDe2icPaciFu",
-    consumer_secret_key: "nXrULjEQntKrSvANjOvNPJru3ZQ=",
+    callback_url: "https://impactrace.site/donation-success",
   };
 
-  const { response } = await publicApi.post(
-      `/initiate-donation`,
-      data,
-    );
+  const resp = await axios.post(
+    "https://system.impactrace.site/api/initiate-donation",
+    data
+  );
 
-    console.log(response)
-
+  if(resp.data.url) {
+    window.location.href = resp.data.url;
+  }
+  console.log(resp.data.url) ;
 }
 onMounted(load);
 </script>

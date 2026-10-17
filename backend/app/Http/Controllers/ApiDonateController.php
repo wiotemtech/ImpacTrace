@@ -2,83 +2,94 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+
 class ApiDonateController extends Controller
 {
-     public function createPayment(Request $request)
+    public function createPayment(Request $request)
     {
+        $data = $request->validate([
+            'amount' => ['required', 'numeric', 'min:1000'],
+            'description' => ['required', 'string', 'max:255'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'callback_url' => ['required', 'url', 'max:2048'],
+        ]);
 
-        $amount = $request->input("amount");
-        $description = $request->input("description");
-        $email = $request->input("email");
-        $callbackUrl = $request->input('callback_url');
-        $consumerKey = $request->input('consumer_key');
-        $consumerSecret = $request->input('consumer_secret_key');
+        $baseUrl = 'https://pay.pesapal.com/v3';
+        $consumerKey = '3fVVcSZWWA2O6feegWJjcDe2icPaciFu';
+        $consumerSecret ='nXrULjEQntKrSvANjOvNPJru3ZQ=';
+        $notificationId = '5fa9af76-bab4-4bb3-9bb6-d9cbd15019a5';
 
-        // processing requests
-        $requiredKeys = ['amount', 'description', 'email'];
-
-        foreach ($requiredKeys as $key) {
-            if (! $request->has($key)) {
-                return response()->json(['error' => 'Missing required key: '.$key], 400);
-            }
+        if (! $consumerKey || ! $consumerSecret || ! $notificationId) {
+            return response()->json([
+                'error' => 'PesaPal is not configured. Set PESAPAL_CONSUMER_KEY, PESAPAL_CONSUMER_SECRET, and PESAPAL_IPN_ID.',
+            ], 503);
         }
 
-        $response = Http::withHeaders([
-            'Accept' => 'application/json',
-            'Content-Type' => 'application/json',
-        ])->post('https://pay.pesapal.com/v3/api/Auth/RequestToken', [
-            'consumer_key' =>$consumerKey,
-            'consumer_secret' => $consumerSecret,
-        ]);
+        try {
+            $tokenResponse = Http::acceptJson()
+                ->connectTimeout(5)
+                ->timeout(20)
+                ->post($baseUrl.'/api/Auth/RequestToken', [
+                    'consumer_key' => $consumerKey,
+                    'consumer_secret' => $consumerSecret,
+                ]);
 
-        $token = $response->json()['token'];
-        // dd($token);
+            $token = $tokenResponse->json('token');
 
+            if (! $tokenResponse->successful() || ! $token) {
+                return response()->json([
+                    'error' => 'Could not authenticate with PesaPal.',
+                ], 502);
+            }
 
-        // sending the payload to pesapal 
-         $response = Http::withHeaders([
-            'Authorization' => 'Bearer '.$token,
-            'Accept' => 'application/json',
-            'Content-Type' => 'application/json',
-        ])->post('https://pay.pesapal.com/v3/api/Transactions/SubmitOrderRequest', [
-            "id" => "AA1122-3344ZZ",
-            "currency"=> "UGX",
-            "amount"=> $amount,
-            "description"=> $description  ,
-            "callback_url"=>"https://www.myapplication.com/response-page",
-            "redirect_mode"=>"",
-            "notification_id"=>"5fa9af76-bab4-4bb3-9bb6-d9cbd15019a5",
-            "branch" =>  "Store Name - HQ",
-            "billing_address" => [
-                "email_address"=> "john.doe@example.com",
-                "phone_number"=> "0781260856",
-                "country_code"=> "UG",
-                "first_name"=> "John",
-                "middle_name"=> "",
-                "last_name"=> "Doe",
-                "line_1"=> "Pesapal Limited",
-                "line_2"=> "",
-                "city"=> "",
-                "state"=> "",
-                "postal_code"=> "",
-                "zip_code"=> ""
-            ]
-        ]);
+            $response = Http::acceptJson()
+                ->withToken($token)
+                ->connectTimeout(5)
+                ->timeout(20)
+                ->post($baseUrl.'/api/Transactions/SubmitOrderRequest', [
+                    'id' => (string) Str::uuid(),
+                    'currency' => 'UGX',
+                    'amount' => $data['amount'],
+                    'description' => $data['description'],
+                    'callback_url' => $data['callback_url'],
+                    'notification_id' => $notificationId,
+                    'billing_address' => [
+                        'email_address' => $data['email'] ?? 'admin@impactrace.site',
+                        'country_code' => 'UG',
+                    ],
+                ]);
+        } catch (ConnectionException $exception) {
+            report($exception);
 
-        $url = '';
-        $orderId = '';
+            return response()->json([
+                'error' => 'Could not connect to PesaPal. Please try again later.',
+            ], 502);
+        }
 
-        if($response->json()['status'] == 200){
-          $url = $response->json()['redirect_url'];
-          $orderId = $response->json()['order_tracking_id'];
+        if (! $response->successful()) {
+            return response()->json([
+                'error' => 'PesaPal could not create the payment order.',
+            ], 502);
+        }
+
+        $result = $response->json();
+        $url = data_get($result, 'redirect_url');
+        $orderId = data_get($result, 'order_tracking_id');
+
+        if (! $url || ! $orderId) {
+            return response()->json([
+                'error' => 'PesaPal returned an incomplete payment order.',
+            ], 502);
         }
 
         return response()->json([
-          'data'=> $response->json(),
-          'url'=> $url,
-          'order_tracking_id'=> $orderId,
+            'data' => $result,
+            'url' => $url,
+            'order_tracking_id' => $orderId,
         ]);
     }
 }
