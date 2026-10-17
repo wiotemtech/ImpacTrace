@@ -193,7 +193,7 @@ async function donate() {
   };
 
   const resp = await axios.post(
-    "http://127.0.0.1:8000/api/initiate-donation",
+    "https://system.impactrace.site/api/initiate-donation",
     data
   );
 
