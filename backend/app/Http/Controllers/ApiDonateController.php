@@ -60,6 +60,7 @@ class ApiDonateController extends Controller
                     'billing_address' => [
                         'email_address' => $data['email'] ?? 'admin@impactrace.site',
                         'country_code' => 'UG',
+                        ''
                     ],
                 ]);
         } catch (ConnectionException $exception) {
