@@ -153,7 +153,6 @@ import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import publicApi from "../api/publicClient";
 import { demoCampaign } from "../api/demoData";
-import axios from "axios";
 const route = useRoute(),
   campaign = ref(null),
   loading = ref(false),
@@ -181,26 +180,34 @@ async function load() {
 }
 
 async function donate() {
-  if(form.value.amount_ugx < 1000) {
+  error.value = "";
+  message.value = "";
+  if (form.value.amount_ugx < 1000) {
     error.value = "Amount must be at least UGX 1000.";
     return;
   }
-  const data = {
-    amount: form.value.amount_ugx,
-    description: "Donation",
-    email: form.value.donor_email,
-    callback_url: "https://impactrace.site/donation-success",
-  };
+  loading.value = true;
+  try {
+    const { data } = await publicApi.post("/initiate-donation", {
+      amount: form.value.amount_ugx,
+      description: "Donation",
+      email: form.value.donor_email,
+      callback_url: "https://impactrace.site/donation-success",
+    });
 
-  const resp = await axios.post(
-    "https://system.impactrace.site/api/initiate-donation",
-    data
-  );
-
-  if(resp.data.url) {
-    window.location.href = resp.data.url;
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      error.value = "The donation service did not return a payment link.";
+    }
+  } catch (requestError) {
+    error.value =
+      requestError.response?.data?.message ||
+      requestError.response?.data?.error ||
+      "Could not connect to the donation service. Please try again later.";
+  } finally {
+    loading.value = false;
   }
-  console.log(resp.data.url) ;
 }
 onMounted(load);
 </script>
