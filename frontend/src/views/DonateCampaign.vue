@@ -113,14 +113,22 @@
               class="rounded-lg border p-3 sm:col-span-2"
             />
           </div>
-         
           <button
+            v-if="loading"
+            :disabled="loading"
+            class="mt-5 w-full rounded-xl bg-[#176b4d] px-4 py-3 font-semibold text-white disabled:opacity-50"
+          >
+            Processing ...........
+          </button>
+          <button
+            v-else
             @click="donate"
             :disabled="loading"
             class="mt-5 w-full rounded-xl bg-[#176b4d] px-4 py-3 font-semibold text-white disabled:opacity-50"
           >
             Donate Now
           </button>
+         
           <div
             v-if="manual"
             class="mt-5 overflow-hidden rounded-xl border border-slate-300 bg-white text-base"
@@ -192,7 +200,7 @@ async function donate() {
       amount: form.value.amount_ugx,
       description: "Donation",
       email: form.value.donor_email,
-      callback_url: "https://impactrace.site/donation-success",
+      callback_url: "https://impactrace.site/",
     });
 
     if (data.url) {
