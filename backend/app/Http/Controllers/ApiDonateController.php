@@ -52,7 +52,7 @@ class ApiDonateController extends Controller
                 ->timeout(20)
                 ->post($baseUrl.'/api/Transactions/SubmitOrderRequest', [
                     'id' => (string) Str::uuid(),
-                    'currency' => 'UGX',
+                    'currency' => 'USD',
                     'amount' => $data['amount'],
                     'description' => $data['description'],
                     'callback_url' => $data['callback_url'],
