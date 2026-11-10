@@ -42,7 +42,7 @@
               <div class="flex justify-between text-sm">
                 <span>Raised so far</span
                 ><strong
-                  >UGX
+                  >USD
                   {{
                     Number(campaign.paid_amount_ugx || 0).toLocaleString()
                   }}
@@ -74,7 +74,7 @@
           <h2 class="mt-2 text-2xl font-bold">Choose your contribution</h2>
           <div class="mt-5 grid grid-cols-3 gap-2">
             <button
-              v-for="amount in [2000, 5000, 10000]"
+              v-for="amount in [10, 20, 25]"
               :key="amount"
               type="button"
               @click="form.amount_ugx = amount"
@@ -85,11 +85,11 @@
               "
               class="rounded-lg border px-2 py-3 text-sm font-semibold"
             >
-              UGX {{ amount.toLocaleString() }}
+              USD {{ amount.toLocaleString() }}
             </button>
           </div>
           <label class="mt-4 block text-sm font-medium"
-            >Amount (UGX)<input
+            >Amount (USD)<input
               v-model.number="form.amount_ugx"
               required
               min="100"
@@ -171,9 +171,11 @@ const form = ref({
   donor_name: "",
   donor_email: "",
   donor_phone: "",
-  amount_ugx: 5000,
+  amount_ugx: 10,
   method: "momo_manual",
 });
+
+const shillings = ref(3750 * form.value.amount_ugx);
 async function load() {
   try {
     const { data } = await publicApi.get(
@@ -190,10 +192,12 @@ async function load() {
 async function donate() {
   error.value = "";
   message.value = "";
-  if (form.value.amount_ugx < 1000) {
-    error.value = "Amount must be at least UGX 1000.";
+
+  if (form.value.amount_ugx < 10) {
+    error.value = "Amount must be at least USD 10.";
     return;
   }
+  
   loading.value = true;
   try {
     const { data } = await publicApi.post("/initiate-donation", {
