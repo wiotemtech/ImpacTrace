@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\FundraisingCampaign;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -12,16 +13,23 @@ class ApiDonateController extends Controller
     public function createPayment(Request $request)
     {
         $data = $request->validate([
-            'amount' => ['required', 'numeric', 'min:1000'],
+            'campaign_slug' => ['required', 'string', 'exists:fundraising_campaigns,slug'],
+            'amount' => ['required', 'numeric', 'min:0.01', 'max:9999999999999.99'],
+            'currency' => ['required', 'in:USD,EUR,GBP,UGX,KES,ZAR'],
             'description' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255'],
+            'donor_name' => ['nullable', 'string', 'max:120'],
+            'donor_phone' => ['nullable', 'string', 'max:40'],
             'callback_url' => ['required', 'url', 'max:2048'],
         ]);
 
-        $baseUrl = 'https://pay.pesapal.com/v3';
-        $consumerKey = '3fVVcSZWWA2O6feegWJjcDe2icPaciFu';
-        $consumerSecret ='nXrULjEQntKrSvANjOvNPJru3ZQ=';
-        $notificationId = '5fa9af76-bab4-4bb3-9bb6-d9cbd15019a5';
+        $campaign = FundraisingCampaign::where('slug', $data['campaign_slug'])
+            ->where('status', 'published')
+            ->firstOrFail();
+        $baseUrl = rtrim(config('services.pesapal.base_url'), '/');
+        $consumerKey = config('services.pesapal.consumer_key');
+        $consumerSecret = config('services.pesapal.consumer_secret');
+        $notificationId = config('services.pesapal.ipn_id');
 
         if (! $consumerKey || ! $consumerSecret || ! $notificationId) {
             return response()->json([
@@ -46,13 +54,14 @@ class ApiDonateController extends Controller
                 ], 502);
             }
 
+            $merchantReference = (string) Str::uuid();
             $response = Http::acceptJson()
                 ->withToken($token)
                 ->connectTimeout(5)
                 ->timeout(20)
                 ->post($baseUrl.'/api/Transactions/SubmitOrderRequest', [
-                    'id' => (string) Str::uuid(),
-                    'currency' => 'USD',
+                    'id' => $merchantReference,
+                    'currency' => $data['currency'],
                     'amount' => $data['amount'],
                     'description' => $data['description'],
                     'callback_url' => $data['callback_url'],
@@ -60,7 +69,6 @@ class ApiDonateController extends Controller
                     'billing_address' => [
                         'email_address' => $data['email'] ?? 'admin@impactrace.site',
                         'country_code' => 'UG',
-                        ''
                     ],
                 ]);
         } catch (ConnectionException $exception) {
@@ -86,6 +94,20 @@ class ApiDonateController extends Controller
                 'error' => 'PesaPal returned an incomplete payment order.',
             ], 502);
         }
+
+        $campaign->donations()->create([
+            'donor_name' => $data['donor_name'] ?? null,
+            'donor_email' => $data['email'] ?? null,
+            'donor_phone' => $data['donor_phone'] ?? null,
+            'amount' => $data['amount'],
+            'currency' => $data['currency'],
+            'amount_ugx' => $data['currency'] === 'UGX' ? $data['amount'] : 0,
+            'method' => 'pesapal',
+            'provider' => 'pesapal',
+            'provider_reference' => $orderId,
+            'provider_payload' => $result,
+            'status' => 'pending',
+        ]);
 
         return response()->json([
             'data' => $result,

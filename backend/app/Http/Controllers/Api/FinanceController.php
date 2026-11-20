@@ -20,8 +20,9 @@ class FinanceController extends Controller {
   $monthly=(clone $q)->select(DB::raw("DATE_FORMAT(transaction_date,'%Y-%m') month"),DB::raw("SUM(CASE WHEN type='income' THEN amount ELSE 0 END) income"),DB::raw("SUM(CASE WHEN type='expense' THEN amount ELSE 0 END) expense"))->groupBy('month')->orderBy('month')->get();
    $paymentScope=Payment::whereHas('package.publication.report.project',fn($query)=>$query->where('organization_id',$org));
    $payments=(clone $paymentScope)->where('status','paid')->with('package.publication')->latest('paid_at')->get();
-   $paymentByMethod=$payments->groupBy('method')->map(fn($items)=>['count'=>$items->count(),'total'=>(float)$items->sum('amount_ugx')]);
-   return ['income'=>(float)$income,'expense'=>(float)$expense,'balance'=>(float)($income-$expense),'by_category'=>$byCategory,'monthly'=>$monthly,'payment_revenue'=>['paid_count'=>$payments->count(),'paid_total'=>(float)$payments->sum('amount_ugx'),'pending_count'=>(clone $paymentScope)->where('status','pending')->count(),'rejected_count'=>(clone $paymentScope)->where('status','rejected')->count(),'by_method'=>$paymentByMethod,'recent'=>$payments->take(20)->values()]];
+   $paymentByMethod=$payments->groupBy(fn($payment)=>$payment->method.'_'.$payment->currency)->map(fn($items)=>['method'=>$items->first()->method,'currency'=>$items->first()->currency,'count'=>$items->count(),'total'=>(float)$items->sum('amount')]);
+   $paymentByCurrency=$payments->groupBy('currency')->map(fn($items)=>['currency'=>$items->first()->currency,'count'=>$items->count(),'total'=>(float)$items->sum('amount')])->values();
+   return ['income'=>(float)$income,'expense'=>(float)$expense,'balance'=>(float)($income-$expense),'by_category'=>$byCategory,'monthly'=>$monthly,'payment_revenue'=>['paid_count'=>$payments->count(),'by_currency'=>$paymentByCurrency,'pending_count'=>(clone $paymentScope)->where('status','pending')->count(),'rejected_count'=>(clone $paymentScope)->where('status','rejected')->count(),'by_method'=>$paymentByMethod,'recent'=>$payments->take(20)->values()]];
  }
  public function transactions(Request $r){
     $org=$this->organizationId($r); abort_if(!$org,422,'Select an organisation first.');

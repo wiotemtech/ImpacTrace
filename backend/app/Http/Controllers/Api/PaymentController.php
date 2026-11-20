@@ -14,15 +14,17 @@ class PaymentController extends Controller {
   return ['merchant_code'=>config('services.momo.merchant_code'),'ussd_code'=>config('services.momo.ussd_code'),'configured'=>(bool)config('services.momo.merchant_code')];
  }
  public function initiate(Request $r, AccessPackage $package){
-  $r->validate(['method'=>'required|in:pesapal,momo_manual']);
+  $r->validate(['method'=>'required|in:pesapal,momo_manual','currency'=>'required|in:USD,EUR,GBP,UGX,KES,ZAR']);
+  abort_if($r->input('method')==='momo_manual' && $r->input('currency')!=='UGX',422,'Manual mobile-money payments are only available in UGX. Select PesaPal to pay in another currency.');
   $amount=$r->input('method')==='momo_manual'&&$package->momo_amount_ugx ? $package->momo_amount_ugx : $package->amount_ugx;
-  $p=Payment::create(['public_user_id'=>$r->user()->id,'access_package_id'=>$package->id,'method'=>$r->method,'provider'=>$r->method==='pesapal'?'pesapal':config('services.momo.provider'),'amount_ugx'=>$amount,'status'=>'pending']);
+  $currency=$r->input('currency');
+  $p=Payment::create(['public_user_id'=>$r->user()->id,'access_package_id'=>$package->id,'method'=>$r->method,'provider'=>$r->method==='pesapal'?'pesapal':config('services.momo.provider'),'amount'=>$amount,'currency'=>$currency,'amount_ugx'=>$currency==='UGX'?$amount:0,'status'=>'pending']);
   
   
   if($r->input('method')==='momo_manual') return response()->json(['payment'=>$p,'merchant_code'=>config('services.momo.merchant_code'),'ussd_code'=>config('services.momo.ussd_code'),'instructions'=>'Dial '.config('services.momo.ussd_code').' to pay the displayed amount to the merchant code, then submit the last 5 characters of your transaction reference.']);
   $checkout=config('services.pesapal.checkout_url');
   abort_unless($checkout,503,'PesaPal is not configured yet. Add PESAPAL_CHECKOUT_URL or connect the PesaPal API credentials.');
-  return response()->json(['payment'=>$p,'checkout_url'=>$checkout.'?payment_id='.$p->id,'message'=>'Opening the PesaPal secure checkout.']);
+  return response()->json(['payment'=>$p,'checkout_url'=>$checkout.'?'.http_build_query(['payment_id'=>$p->id,'amount'=>$p->amount,'currency'=>$p->currency]),'message'=>'Opening the PesaPal secure checkout.']);
  }
  public function submitReference(Request $r, Payment $payment){
   abort_unless($payment->public_user_id===$r->user()->id && $payment->method==='momo_manual',404);

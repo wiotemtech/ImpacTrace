@@ -9,7 +9,7 @@
       <div v-if="!payments.length" class="p-8 text-center text-slate-500">No pending payments.</div>
       <div v-for="payment in payments" :key="payment.id" class="grid gap-3 border-b p-5 md:grid-cols-[1fr_1fr_auto] md:items-center">
         <div><div class="font-semibold">{{ payment.user?.name || 'Reader' }}</div><div class="text-sm text-slate-500">{{ payment.user?.phone || payment.phone }} · {{ payment.package?.publication?.title }}</div></div>
-        <div><div class="font-semibold">UGX {{ Number(payment.amount_ugx).toLocaleString() }}</div><div class="text-sm text-slate-500">{{ payment.method }} · Ref {{ payment.last5_reference || 'not submitted' }}</div></div>
+        <div><div class="font-semibold">{{ payment.currency || 'UGX' }} {{ Number(payment.amount ?? payment.amount_ugx).toLocaleString() }}</div><div class="text-sm text-slate-500">{{ payment.method }} · Ref {{ payment.last5_reference || 'not submitted' }}</div></div>
         <div class="flex gap-2"><button @click="verify(payment, 'paid')" class="rounded-lg bg-emerald-700 px-3 py-2 text-sm text-white">Approve</button><button @click="verify(payment, 'rejected')" class="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-700">Reject</button></div>
       </div>
     </div>

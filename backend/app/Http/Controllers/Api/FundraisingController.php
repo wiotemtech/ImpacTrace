@@ -31,7 +31,7 @@ class FundraisingController extends Controller
     {
         $campaign = FundraisingCampaign::with('organization:id,name')
             ->where('slug', $slug)->where('status', 'published')->firstOrFail();
-        $campaign->setAttribute('paid_amount_ugx', (int) $campaign->donations()->where('status', 'paid')->sum('amount_ugx'));
+        $campaign->setAttribute('paid_amount_ugx', (int) $campaign->donations()->where('status', 'paid')->where('currency', 'UGX')->sum('amount'));
         return $campaign;
     }
 
@@ -42,11 +42,19 @@ class FundraisingController extends Controller
             'donor_name' => 'nullable|string|max:120',
             'donor_email' => 'nullable|email|max:160',
             'donor_phone' => 'nullable|string|max:40',
-            'amount_ugx' => 'required|integer|min:100',
+            'amount' => 'required|numeric|min:0.01|max:9999999999999.99',
+            'currency' => 'required|in:USD,EUR,GBP,UGX,KES,ZAR',
             'method' => 'required|in:pesapal,momo_manual',
         ]);
+        abort_if($data['method'] === 'momo_manual' && $data['currency'] !== 'UGX', 422, 'Manual mobile-money payments are only available in UGX.');
         $donation = $campaign->donations()->create([
-            ...$data,
+            'donor_name' => $data['donor_name'] ?? null,
+            'donor_email' => $data['donor_email'] ?? null,
+            'donor_phone' => $data['donor_phone'] ?? null,
+            'amount' => $data['amount'],
+            'currency' => $data['currency'],
+            'amount_ugx' => $data['currency'] === 'UGX' ? $data['amount'] : 0,
+            'method' => $data['method'],
             'provider' => $data['method'] === 'pesapal' ? 'pesapal' : config('services.momo.provider'),
             'status' => 'pending',
         ]);
@@ -57,7 +65,12 @@ class FundraisingController extends Controller
 
         $checkout = config('services.pesapal.checkout_url');
         abort_unless($checkout, 503, 'PesaPal is not configured yet. Add PESAPAL_CHECKOUT_URL or connect the PesaPal API credentials.');
-        return ['donation' => $donation, 'checkout_url' => $checkout . '?donation_id=' . $donation->id];
+        $query = http_build_query([
+            'donation_id' => $donation->id,
+            'amount' => $donation->amount,
+            'currency' => $donation->currency,
+        ]);
+        return ['donation' => $donation, 'checkout_url' => $checkout . (str_contains($checkout, '?') ? '&' : '?') . $query];
     }
 
     public function submitReference(Request $request, FundraisingDonation $donation)
@@ -118,7 +131,11 @@ class FundraisingController extends Controller
         $organizationId = $this->organizationId($request);
         abort_if(!$organizationId, 422, 'Select an organisation first.');
         $query = FundraisingDonation::where('status', 'paid')->whereHas('campaign', fn ($q) => $q->where('organization_id', $organizationId));
-        return ['paid_count' => (clone $query)->count(), 'paid_total' => (float) (clone $query)->sum('amount_ugx'), 'by_campaign' => (clone $query)->with('campaign:id,title')->selectRaw('fundraising_campaign_id, COUNT(*) as count, SUM(amount_ugx) as total')->groupBy('fundraising_campaign_id')->get()];
+        return [
+            'paid_count' => (clone $query)->count(),
+            'by_currency' => (clone $query)->selectRaw('currency, COUNT(*) as count, SUM(amount) as total')->groupBy('currency')->get(),
+            'by_campaign' => (clone $query)->with('campaign:id,title')->selectRaw('fundraising_campaign_id, currency, COUNT(*) as count, SUM(amount) as total')->groupBy('fundraising_campaign_id', 'currency')->get(),
+        ];
     }
 
     public function verifyDonation(Request $request, FundraisingDonation $donation)

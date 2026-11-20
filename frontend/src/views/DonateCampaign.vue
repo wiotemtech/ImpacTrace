@@ -40,9 +40,9 @@
               class="mt-7 border-t pt-5"
             >
               <div class="flex justify-between text-sm">
-                <span>Raised so far</span
+                <span>Raised so far (UGX)</span
                 ><strong
-                  >USD
+                    >UGX
                   {{
                     Number(campaign.paid_amount_ugx || 0).toLocaleString()
                   }}
@@ -77,22 +77,33 @@
               v-for="amount in [10, 20, 25]"
               :key="amount"
               type="button"
-              @click="form.amount_ugx = amount"
+              @click="form.amount = amount"
               :class="
-                Number(form.amount_ugx) === amount
+                Number(form.amount) === amount
                   ? 'border-emerald-700 bg-emerald-50 text-emerald-800'
                   : 'border-slate-200 bg-white'
               "
               class="rounded-lg border px-2 py-3 text-sm font-semibold"
             >
-              USD {{ amount.toLocaleString() }}
+              {{ form.currency }} {{ amount.toLocaleString() }}
             </button>
           </div>
+          <label class="mt-4 block text-sm font-medium">Currency
+            <select v-model="form.currency" class="mt-1 w-full rounded-lg border p-3">
+              <option value="USD">USD — US Dollar</option>
+              <option value="EUR">EUR — Euro</option>
+              <option value="GBP">GBP — British Pound</option>
+              <option value="UGX">UGX — Ugandan Shilling</option>
+              <option value="KES">KES — Kenyan Shilling</option>
+              <option value="ZAR">ZAR — South African Rand</option>
+            </select>
+          </label>
           <label class="mt-4 block text-sm font-medium"
-            >Amount (USD)<input
-              v-model.number="form.amount_ugx"
+            >Amount ({{ form.currency }})<input
+              v-model.number="form.amount"
               required
-              min="100"
+              min="0.01"
+              step="0.01"
               type="number"
               class="mt-1 w-full rounded-lg border p-3"
           /></label>
@@ -129,21 +140,7 @@
             Donate Now
           </button>
          
-          <div
-            v-if="manual"
-            class="mt-5 overflow-hidden rounded-xl border border-slate-300 bg-white text-base"
-          >
-            <div class="border-b px-4 py-3 font-semibold underline">
-              - &nbsp;MTN MOBILE MONEY
-            </div>
-            <div class="space-y-1 px-4 py-5">
-              <p class="font-semibold tracking-wide">*165*4*4#</p>
-              <p>Merchant Code: {{ manual.merchant_code || "99485612" }}</p>
-              <p>Ref: {{ form.donor_name || "Sponsor's Full Name" }}</p>
-              <p>Amount: UGX {{ Number(form.amount_ugx).toLocaleString() }}</p>
-              <p>PIN</p>
-            </div>
-          </div>
+          <p class="mt-3 text-xs text-slate-500">The amount will be charged and recorded in the currency selected above. It will not be converted to UGX.</p>
           <p v-if="message" class="mt-4 text-sm font-medium text-emerald-800">
             {{ message }}
           </p>
@@ -164,18 +161,15 @@ import { demoCampaign } from "../api/demoData";
 const route = useRoute(),
   campaign = ref(null),
   loading = ref(false),
-  manual = ref(null),
   message = ref(""),
   error = ref("");
 const form = ref({
   donor_name: "",
   donor_email: "",
   donor_phone: "",
-  amount_ugx: 10,
-  method: "momo_manual",
+  amount: 10,
+  currency: "USD",
 });
-
-const shillings = ref(3750 * form.value.amount_ugx);
 async function load() {
   try {
     const { data } = await publicApi.get(
@@ -193,17 +187,21 @@ async function donate() {
   error.value = "";
   message.value = "";
 
-  if (form.value.amount_ugx < 10) {
-    error.value = "Amount must be at least USD 10.";
+  if (!Number.isFinite(Number(form.value.amount)) || Number(form.value.amount) < 0.01) {
+    error.value = "Amount must be at least 0.01 in the selected currency.";
     return;
   }
   
   loading.value = true;
   try {
     const { data } = await publicApi.post("/initiate-donation", {
-      amount: form.value.amount_ugx,
+      campaign_slug: campaign.value.slug,
+      amount: form.value.amount,
+      currency: form.value.currency,
       description: "Donation",
       email: form.value.donor_email,
+      donor_name: form.value.donor_name,
+      donor_phone: form.value.donor_phone,
       callback_url: "https://impactrace.site/",
     });
 
